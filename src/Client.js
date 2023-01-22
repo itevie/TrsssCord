@@ -7,8 +7,6 @@ const {
 } = require("./builders");
 const Intents = require("./Intents");
 
-const eventList = require(__dirname + "/eventList");
-
 class Client {
     #token = null
     
