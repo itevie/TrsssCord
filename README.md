@@ -117,13 +117,13 @@ Send a message to a channel
 `channel.send("hi!")`
 `message.channel.send("hi!")`
 #### Modifying settings
-`channel.setName("new Name")` - Modifies a channel's name
-`channel.setTopic("new topic")` - Modifies a channel's topic
-`channel.setNsfw(false)` - Changes a channel's NSFW setting
-`channel.typing()` - Sends a typing indicator
-`channel.getPinned()` - Returns an array of messages that are pinned
-`channel.getMessage("<message id>")` - Fetches a message within a channel
-`channel.delete()` - Deletes a channel
+`channel.setName("new Name")` - Modifies a channel's name\ 
+`channel.setTopic("new topic")` - Modifies a channel's topic\ 
+`channel.setNsfw(false)` - Changes a channel's NSFW setting\ 
+`channel.typing()` - Sends a typing indicator\ 
+`channel.getPinned()` - Returns an array of messages that are pinned\ 
+`channel.getMessage("<message id>")` - Fetches a message within a channel\ 
+`channel.delete()` - Deletes a channel\ 
 ### User AND member methods
 Methods you can use on a user object
 #### send
