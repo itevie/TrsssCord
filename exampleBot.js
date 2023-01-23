@@ -39,4 +39,4 @@ client.on("messageCreate", (message) => {
     return message.reply(toSend);
 });
 
-client.login("MTA0ODYyMTg5NTE3NzczMjA5Nw.GfbV_-.egGxLDnq1yCzLHC1myzdQRerMNo5b_QP3h3RQs")
+client.login("your token here")
