@@ -254,7 +254,65 @@ class Guild {
   }
 
   getMember(id) {
-    
+
+  }
+
+  channels = {
+    createTextChannel: (name, options) => {
+      return new Promise((resolve, reject) => {
+        let o = {
+          name: name
+        }
+
+        for (let i in options) {
+          switch (options[i]) {
+            case "topic":
+              o.topic = options[i];
+              break;
+            case "timeout":
+              o.rate_limit_per_user = options[i];
+              break;
+            case "position":
+              o.position = options[i];
+              break;
+            case "parentId":
+              o.parent_id = options[i];
+              break;
+            case "nsfw":
+              o.nsfw = options[i];
+              break;
+          }
+        }
+
+        this.client.sendHttps("post", this.client.api + "/guilds/" + this.id + "/channels", o)
+          .then(res => {
+            let channel = new Channel(this.client, res.id);
+            channel.init().then(() => {
+              resolve(channel);
+            }).catch((err) => {
+              reject(new Error("Failed to init channel: " + err));
+            })
+          }).catch(err => reject(new Error("Failed to create channel: " + err)));
+      });
+    }
+  }
+
+  members = {
+    fetch: (id) => {
+      return new Promise((resolve, reject) => {
+        this.client.sendHttps("get", this.client.api + "/guilds/" + this.id + "/members/" + id)
+          .then(member => {
+            this.client.sendHttps("get", this.client.api + "/users/" + id).then(user => {
+              let newUser = new Member(this.client, member, user, this);
+              resolve(newUser);
+            }).catch(err => {
+              reject(new Error("Failed to fetch user " + id + ": " + err));
+            })
+          }).catch(err => {
+            reject(new Error("Failed to fetch member " + id + ": " + err));
+          });
+      });
+    }
   }
 }
 
@@ -283,10 +341,13 @@ class User {
           this.client.sendHttps("post", this.client.api + "/channels/" + res.id + "/messages", toSend)
             .then(r => {
               this.client.debug("Successfully sent DM to " + this.id);
-              resolve(r);
-            }).catch(err => reject(err));
+              let msg = new Message(this.client, r);
+              msg.init().then(() => {
+                resolve(msg);
+              }).catch(err => reject(new Error("Failed to init message: " + err)));
+            }).catch(err => reject(new Error("Failed to fetch message: " + err)));
         } catch (err) {}
-      }).catch(err => reject(err));
+      }).catch(err => reject(new Error("Failed to create user DM: " + err)));
     });
   }
 }
@@ -300,12 +361,12 @@ class Message {
     this.mentionRoles = d.mention_roles;
     this.mentionsEveryone = d.mention_everyone;
     if (d.member) {
-      this.member = new Member(client, d.member, d.author);
+      this.member = new Member(client, d.member, d.author, gId);
     }
     this.id = d.id;
     this.embeds = d.embeds;
     this.editedTimestamp = d.edited_timestamp;
-    if (d.message_reference) this.messageReference = {
+    if (d.message_reference) this.reference = {
       id: d.message_reference.message_id,
       fetch: () => this.fetchReference()
     }
@@ -313,7 +374,7 @@ class Message {
     this.channelId = d.channel_id;
     this.channel = new Channel(client, this.channelId);
     this.author = new User(client, d.author);
-    this.guild = new Guild(client, gId || d.guild_id  );
+    this.guild = new Guild(client, gId || d.guild_id);
   }
 
   init() {
@@ -327,7 +388,7 @@ class Message {
               resolve();
             } else resolve();
           }).catch(err => reject(err));
-        }
+        } else resolve();
       }).catch(err => reject(err));
     });
   }
@@ -340,7 +401,7 @@ class Message {
           msg.init().then(() => {
             if (msg.guild && msg.channel.type != 1) {
               this.client.sendHttps("get", this.client.api + "/guilds/" + this.guild.id + "/members/" + this.author.id).then(r => {
-                this.member = new Member(this.client, r, msg.member || msg.author);
+                this.member = new Member(this.client, r, msg.member || msg.author, this.guild);
                 this.member.guild = this.guild;
                 resolve(msg);
               }).catch(err => reject(err));
@@ -409,7 +470,7 @@ class Message {
 }
 
 class Member extends User {
-  constructor(client, data, author) {
+  constructor(client, data, author, guild) {
     super(client, author);
     this.client = client;
     this.roles = data.roles;
@@ -420,6 +481,7 @@ class Member extends User {
     this.joinedAt = data.joined_at;
     this.communicationDisabledUntil = data.communication_disabled_until;
     this.avatar = data.avatar;
+    if (guild) this.guild = guild;
   }
 
   setNick(newNick) {
@@ -431,6 +493,36 @@ class Member extends User {
         resolve();
       }).catch(err => {
         reject(err);
+      });
+    });
+  }
+
+  ban() {
+    return new Promise((resolve, reject) => {
+      this.client.sendHttps("put", this.client.api + "/guilds/" + this.guild.id + "/bans/" + this.id).then(() => {
+        resolve();
+      }).catch(err => {
+        reject(new Error("Failed to ban " + this.id + ": " + err));
+      });
+    });
+  }
+
+  unban() {
+    return new Promise((resolve, reject) => {
+      this.client.sendHttps("delete", this.client.api + "/guilds/" + this.guild.id + "/bans/" + this.id).then(() => {
+        resolve();
+      }).catch(err => {
+        reject(new Error("Failed to remove ban " + this.id + ": " + err));
+      });
+    });
+  }
+
+  kick() {
+    return new Promise((resolve, reject) => {
+      this.client.sendHttps("delete", this.client.api + "/guilds/" + this.guild.id + "/members/" + this.id).then(() => {
+        resolve();
+      }).catch(err => {
+        reject(new Error("Failed to kick " + this.id + ": " + err));
       });
     });
   }
@@ -470,3 +562,4 @@ module.exports.Member = Member;
 module.exports.Message = Message;
 module.exports.Channel = Channel;
 module.exports.User = User;
+module.exports.Guild = Guild;

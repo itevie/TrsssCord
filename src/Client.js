@@ -3,7 +3,8 @@ const axios = require("axios");
 const {
     Message,
     Channel,
-    User
+    User,
+    Guild
 } = require("./builders");
 const Intents = require("./Intents");
 
@@ -296,19 +297,36 @@ class Client {
         });
     }
 
-    fetchChannel(id) {
-        return new Promise((resolve, reject) => {
-            this.sendHttps("get", this.api + "/channels/" + id)
-                .then(res => {
-                    let channel = new Channel(this, res);
-                    channel.init().then(() => {
-                        resolve(new Channel(this, res));
+    channels = {
+        fetch: (id) => {
+            return new Promise((resolve, reject) => {
+                this.sendHttps("get", this.api + "/channels/" + id)
+                    .then(res => {
+                        let channel = new Channel(this, res);
+                        channel.init().then(() => {
+                            resolve(new Channel(this, res));
+                        });
+                    }).catch(err => {
+                        reject(new Error("Failed to fetch channel " + id + ": " + err));
                     });
-                }).catch(err => {
-                    reject(err);
-                });
-        });
+            });
+        }
     }
+
+    guilds = {
+        fetch: (id) => {
+            return new Promise((resolve, reject) => {
+                let guild = new Guild(this, id);
+                guild.init().then(() => {
+                    resolve(guild);
+                }).catch(err => reject(new Error("Failed to fetch guild: " + id + ": " + err)));
+            });
+        }
+    }
+
+    fetchChannel(id) {}
+
+    fetchGuild(id) {}
 
     getSelf() {
         return new Promise((resolve, reject) => {
@@ -317,7 +335,7 @@ class Client {
                     let user = new User(this, res);
                     resolve(user)
                 }).catch(err => {
-                    reject(err);
+                    reject(new Error("Failed to get self: " + err));
                 });
         });
     }
