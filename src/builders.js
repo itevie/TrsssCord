@@ -170,6 +170,20 @@ class Channel {
         }).catch(err => reject(err));
     });
   }
+
+  invites = {
+    create: () => {
+      return new Promise((resolve, reject) => {
+        this.client.sendHttps("post", this.client.api + "/channels/" + this.id + "/invites", {})
+        .then(res => {
+          let invite = new Invite(this.client, res);
+          invite.init(res).then(() => {
+            resolve(invite);
+          }).catch(err => reject(new Error("Failed to init invite: " + err)));
+        }).catch(err => reject(new Error("Failed to create invite: " + err)));
+      });
+    }
+  }
 }
 
 class Guild {
@@ -233,6 +247,12 @@ class Guild {
       this.embedEnabled = d.embed_enabled;
       this.embedChannelId = d.embed_channel_id;
       this.owner = null;
+
+      // Set up roles
+      for (let i in this.roles) {
+        let role = new Role(this.client, this.roles[i], this);
+        this.roles[i] = role;
+      }
 
       this.client.sendHttps("get", this.client.api + "/users/" + d.owner_id).then(res => {
         this.owner = new User(this.client, res);
@@ -313,6 +333,15 @@ class Guild {
           });
       });
     }
+  }
+
+  fetchInvites() {
+    return new Promise((resolve, reject) => {
+      this.client.sendHttps("get", this.client.api + "/guilds/" + this.id + "/invites")
+        .then((res) => {
+          resolve(res);
+        }).catch(err => reject(new Error("Failed to fetch invites: " + err)));
+    });
   }
 }
 
@@ -524,6 +553,106 @@ class Member extends User {
       }).catch(err => {
         reject(new Error("Failed to kick " + this.id + ": " + err));
       });
+    });
+  }
+}
+
+class Invite {
+  constructor(client, data) {
+    this.client = client;
+    this.code = data.code;
+    this.type = data.type;
+    this.expiresAt = new Date(data.expires_at);
+    this.uses = data.uses;
+    this.maxUses = data.max_uses;
+    this.maxAge = data.max_age;
+    this.temporary = data.temporary;
+    this.createdAt = new Date(data.created_at);
+  }
+
+  init(data) {
+    return new Promise((resolve, reject) => {
+      let guild = new Guild(this.client, data.guild.id);
+      guild.init().then(() => {
+        this.guild = guild;
+        let channel = new Channel(this.client, data.channel.id);
+        channel.init().then(() => {
+          this.channel = channel;
+          this.client.sendHttps("get", this.client.api + "/users/" + data.inviter.id)
+          .then(uRes => {
+            let user = new User(this.client, uRes);
+            this.inviter = user;
+            resolve(this);
+          }).catch(err => reject(new Error("Failed to fetch user at invite init: " + err)));
+        }).catch(err => reject(new Error("Failed to init channel at invite init: " + err)));
+      }).catch(err => reject(new Error("Failed to init guild at invite init: " + err)));
+    });
+  }
+
+  delete() {
+    return new Promise((resolve, reject) => {
+      this.client.sendHttps("delete", this.client.api + "/invites/" + this.code)
+        .then(res => {
+          resolve();
+        }).catch(err => reject(new Error("Failed to delete invite: " + err)));
+    });
+  }
+}
+
+class Role {
+  constructor(client, data, guild) {
+    this.client = client;
+    this.guild = guild;
+
+    this.init(data);
+  }
+
+  init(data) {
+    this.id = data.id;
+    this.name = data.name;
+    this.description = data.description;
+    this.permissions = data.permissions;
+    this.position = data.position;
+    this.color = data.color;
+    this.hoise = data.hoist;
+    this.managed = data.managed;
+    this.mentionable = data.mentionable;
+    this.icon = data.icon;
+    this.unicodeEmoji = data.unicodeEmoji;
+    this.tags = data.tags;
+    this.flags = data.flags;
+  }
+
+  delete() {
+    return new Promise((resolve, reject) => {
+      this.client.sendHttps("delete", this.client.api + "/guilds/" + this.guild.id + "/roles/" + this.id)
+        .then(() => {
+          resolve();
+        }).catch(err => reject(new Error("Failed to delete role: " + err)));
+    })
+  }
+
+  setName(newName) {
+    return new Promise((resolve, reject) => {
+      this.client.sendHttps("patch", this.client.api + "/guilds/" + this.guild.id + "/roles/" + this.id, {
+          name: newName
+        })
+        .then((res) => {
+          this.init(res);
+          resolve(this);
+        }).catch(err => reject(new Error("Failed to update role: " + err)));
+    });
+  }
+
+  setHoist(hoist) {
+    return new Promise((resolve, reject) => {
+      this.client.sendHttps("patch", this.client.api + "/guilds/" + this.guild.id + "/roles/" + this.id, {
+          hoist: hoist
+        })
+        .then((res) => {
+          this.init(res);
+          resolve(this);
+        }).catch(err => reject(new Error("Failed to update role: " + err)));
     });
   }
 }

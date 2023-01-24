@@ -7,6 +7,7 @@ const {
     Guild
 } = require("./builders");
 const Intents = require("./Intents");
+const { Invite } = require("discord.js");
 
 class Client {
     #token = null
@@ -321,12 +322,35 @@ class Client {
                     resolve(guild);
                 }).catch(err => reject(new Error("Failed to fetch guild: " + id + ": " + err)));
             });
+        },
+
+        create: (name) => {
+            return new Promise((resolve, reject) => {
+                this.sendHttps("post", this.api + "/guilds", {
+                    name: name
+                }).then(res => {
+                    let guild = new Guild(this, res.id);
+                    guild.init().then(() => {
+                        resolve(guild);
+                    }).catch(err => reject(new Error("Failed to init guild: " + err)));
+                }).catch(err => reject(new Error("Failed to create guild: " + err)));
+            });
         }
     }
 
-    fetchChannel(id) {}
-
-    fetchGuild(id) {}
+    invites = {
+        fetch: (code) => {
+            return new Promise((resolve, reject) => {
+                this.sendHttps("get", this.api + "/invites/" + code)
+                .then(res => {
+                    let invite = new Invite(this, res);
+                    invite.init(res).then(() => {
+                        resolve(invite);
+                    }).catch(err => reject(new Error("Failed to init invite: " + err)));
+                }).catch(err => reject(new Error("Failed to fetch invite: " + err)));
+            });
+        }
+    }
 
     getSelf() {
         return new Promise((resolve, reject) => {
