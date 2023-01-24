@@ -692,3 +692,4 @@ module.exports.Message = Message;
 module.exports.Channel = Channel;
 module.exports.User = User;
 module.exports.Guild = Guild;
+module.exports.Invite = Invite;

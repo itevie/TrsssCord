@@ -4,10 +4,10 @@ const {
     Message,
     Channel,
     User,
-    Guild
+    Guild,
+    Invite
 } = require("./builders");
 const Intents = require("./Intents");
-const { Invite } = require("discord.js");
 
 class Client {
     #token = null
