@@ -1,6 +1,7 @@
 let reportMsg = " > Not sure what this means? Please report the whole error to the TrsssCord github repository.";
 
-function genErr(i, e, noErr) {
+function genErr(i, e = "", noErr) {
+    if (!e) e = "";
     let text = i.replace(/^(Error:)$/g, "") + "\n";
     let lin = e.toString().split("\n");
     for (let i in lin) {

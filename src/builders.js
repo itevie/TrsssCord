@@ -1,3 +1,7 @@
+const {
+  RichPresenceAssets
+} = require("discord.js");
+
 const Embed = require(__dirname + "/Embed.js");
 const genErr = require(__dirname + "/GenerateError.js");
 
@@ -16,7 +20,7 @@ class Channel {
           this.initSettings(chRes);
 
           resolve();
-        }).catch(err => reject(err));
+        }).catch(err => reject(genErr("channel init", err)));
     });
   }
 
@@ -42,8 +46,8 @@ class Channel {
                 let msg = new Message(this.client, res, this.guild.id);
                 msg.init().then(() => {
                   reso(msg)
-                }).catch(err => reject(err));;
-              }).catch(err => rej(err));
+                }).catch(err => reject(genErr("message init", err)));
+              }).catch(err => rej(genErr("fetch message", err)));
           });
         }
       }
@@ -67,8 +71,8 @@ class Channel {
           let msg = new Message(this.client, res, this.guild.id);
           msg.init().then(() => {
             resolve(msg)
-          }).catch(err => reject(err));
-        }).catch(err => reject(err));
+          }).catch(err => reject(genErr("message init", err)));
+        }).catch(err => reject(genErr("channel send message", err)));
     });
   }
 
@@ -84,8 +88,8 @@ class Channel {
           let msg = new Message(this.client, res, this.guild.id);
           msg.init().then(() => {
             resolve(msg)
-          }).catch(err => reject(err));
-        }).catch(err => reject(err));
+          }).catch(err => reject(genErr("message init", err)));
+        }).catch(err => reject(genErr("channel reply", err)));
     });
   }
 
@@ -96,8 +100,8 @@ class Channel {
       }).then(res => {
         this.init().then(() => {
           resolve();
-        }).catch(err => reject(err));
-      }).catch(err => reject(err));
+        }).catch(err => reject(genErr("channel init", err)));
+      }).catch(err => reject(genErr("update channel; set name", err)));
     });
   }
 
@@ -108,8 +112,8 @@ class Channel {
       }).then(res => {
         this.init().then(() => {
           resolve();
-        }).catch(err => reject(err));
-      }).catch(err => reject(err));
+        }).catch(err => reject(genErr("channel init; set topic", err)));
+      }).catch(err => reject(genErr("update channel; set topic", err)));
     });
   }
 
@@ -133,7 +137,7 @@ class Channel {
       this.client.sendHttps("post", this.client.api + "/channels/" + this.id + "/typing  ", {})
         .then(res => {
           resolve();
-        }).catch(err => reject(err));
+        }).catch(err => reject(genErr("set typing", err)));
     });
   }
 
@@ -147,7 +151,7 @@ class Channel {
             res[i] = message;
           }
           resolve(res);
-        }).catch(err => reject(err));
+        }).catch(err => reject(genErr("fetch pins", err)));
     });
   }
 
@@ -158,8 +162,8 @@ class Channel {
           let message = new Message(this.client, res, this.guild.id);
           message.init().then(() => {
             resolve(res);
-          }).catch(err => reject(err));
-        }).catch(err => reject(err));
+          }).catch(err => reject(genErr("message init", err)));
+        }).catch(err => reject(genErr("fetch message", err)));
     });
   }
 
@@ -168,7 +172,7 @@ class Channel {
       this.client.sendHttps("delete", this.client.api + "/channels/" + this.id)
         .then(res => {
           resolve();
-        }).catch(err => reject(err));
+        }).catch(err => reject(genErr("channel delete", err)));
     });
   }
 
@@ -200,7 +204,7 @@ class Guild {
           this.initSettings(gRes).then(() => {
             resolve();
           });
-        }).catch(err => reject(err));
+        }).catch(err => reject(genErr("guild init", err)));
     });
   }
 
@@ -258,7 +262,7 @@ class Guild {
       this.client.sendHttps("get", this.client.api + "/users/" + d.owner_id).then(res => {
         this.owner = new User(this.client, res);
         resolve();
-      }).catch(err => reject(err));
+      }).catch(err => reject(genErr("guild init settings", err)));
     });
   }
 
@@ -269,13 +273,22 @@ class Guild {
       }).then(res => {
         this.init().then(() => {
           resolve();
-        }).catch(err => reject(err));
-      }).catch(err => reject(err));
+        }).catch(err => reject(genErr("guild init", err)));
+      }).catch(err => reject(genErr("update guild; set name" + err)));
     });
   }
 
   getMember(id) {
 
+  }
+
+  delete() {
+    return new Promise((resolve, reject) => {
+      this.client.sendHttps("delete", this.client.api + "/guilds/" + this.id)
+        .then(res => {
+          resolve();
+        }).catch(err => reject(genErr("delete guild " + err)));
+    });
   }
 
   channels = {
@@ -315,6 +328,22 @@ class Guild {
             })
           }).catch(err => reject(genErr("create channel", err)));
       });
+    },
+
+    fetchAll: () => {
+      return new Promise((resolve, reject) => {
+        this.client.sendHttps("get", this.client.api + "/guilds/" + this.id + "/channels")
+          .then(res => {
+            let channels = res;
+            for (let i in channels) {
+              let channel = new Channel(this.client, channels[i].id);
+              channel.init().then(() => {
+                channels[i] = channel;
+                if (i == channels.length - 1) resolve(channels);
+              }).catch(err => reject(genErr("channel init (" + i + ")", err)));
+            }
+          }).catch(err => reject(genErr("fetch channels", err)))
+      });
     }
   }
 
@@ -332,6 +361,19 @@ class Guild {
           }).catch(err => {
             reject(genErr("fetch member " + id, err));
           });
+      });
+    }
+  }
+
+  templates = {
+    create: (name) => {
+      return new Promise((resolve, reject) => {
+        this.client.sendHttps("post", this.client.api + "/guilds/" + this.id + "/templates", {
+          name: name
+        }).then((res) => {
+          let template = new Template(this.client, res);
+          resolve(template);
+        }).catch(err => reject(genErr("create template", err)));
       });
     }
   }
@@ -417,9 +459,9 @@ class Message {
               this.member.id = this.author.id;
               resolve();
             } else resolve();
-          }).catch(err => reject(err));
+          }).catch(err => reject(genErr("guild init", err)));
         } else resolve();
-      }).catch(err => reject(err));
+      }).catch(err => reject(genErr("channel init", err)));
     });
   }
 
@@ -434,23 +476,23 @@ class Message {
                 this.member = new Member(this.client, r, msg.member || msg.author, this.guild);
                 this.member.guild = this.guild;
                 resolve(msg);
-              }).catch(err => reject(err));
+              }).catch(err => reject(genErr("fetch member", err)));
             } else resolve(msg);
-          }).catch(err => reject(err));
-        }).catch(err => reject(err));
+          }).catch(err => reject(genErr("message init", err)));
+        }).catch(err => reject(genErr("fetch message", err)));
     });
   }
 
-  edit(content) {
+  edit(content, other) {
     return new Promise((resolve, reject) => {
-      this.client.sendHttps("patch", this.client.api + "/channels/" + this.channel.id + "/messages/" + this.id, {
-        content: content
-      }).then(res => {
+      let toSend = getToSend(content, other);
+
+      this.client.sendHttps("patch", this.client.api + "/channels/" + this.channel.id + "/messages/" + this.id, toSend).then(res => {
         let msg = new Message(this.client, res, this.guild.id);
         msg.init().then(() => {
           resolve(msg)
-        }).catch(err => reject(err));
-      }).catch(err => reject(err));
+        }).catch(err => reject(genErr("message init", err)));
+      }).catch(err => reject(genErr("fetch message", err)));
     });
   }
 
@@ -459,7 +501,7 @@ class Message {
       this.client.sendHttps("delete", this.client.api + "/channels/" + this.channel.id + "/messages/" + this.id)
         .then(res => {
           resolve(true);
-        }).catch(err => reject(err));
+        }).catch(err => reject(genErr("delete message", err)));
     });
   }
 
@@ -468,7 +510,7 @@ class Message {
       this.client.sendHttps("put", this.client.api + "/channels/" + this.channel.id + "/pins/" + this.id)
         .then(res => {
           resolve(true);
-        }).catch(err => reject(err));
+        }).catch(err => reject(genErr("pin", err)));
     });
   }
 
@@ -477,16 +519,7 @@ class Message {
       this.client.sendHttps("delete", this.client.api + "/channels/" + this.channel.id + "/pins/" + this.id)
         .then(res => {
           resolve(true);
-        }).catch(err => reject(err));
-    });
-  }
-
-  clearReactions() {
-    return new Promise((resolve, reject) => {
-      this.client.sendHttps("delete", this.client.api + "/channels/" + this.channel.id + "/messages/" + this.id + "/reactions")
-        .then(res => {
-          resolve(true);
-        }).catch(err => reject(err));
+        }).catch(err => reject(genErr("unpin", err)));
     });
   }
 
@@ -494,8 +527,61 @@ class Message {
     return new Promise((resolve, reject) => {
       this.channel.replyTo(this, content, other).then((msg) => {
         resolve(msg);
-      }).catch(err => reject(err));
+      }).catch(err => reject(genErr("reply", err)));
     });
+  }
+
+  reactions = {
+    add: (emoji) => {
+      return new Promise((resolve, reject) => {
+        let to = this.client.lastDoneTimers.reactionAdd - (Date.now() - this.client.lastDone.reactionAdd);
+        if (to < 0) to = 0;
+        else this.client.debug("Waiting " + to + "ms");
+        this.client.lastDone.reactionAdd = Date.now();
+        setTimeout(() => {
+          this.client.sendHttps("put", this.client.api + "/channels/" + this.channel.id + "/messages/" + this.id + "/reactions/" + encodeURI(emoji) + "/@me")
+            .then(() => {
+              resolve();
+            }).catch(err => reject(genErr("add reaction", err)));
+        }, to);
+      });
+    },
+
+    remove: (emoji, user = "@me") => {
+      return new Promise((resolve, reject) => {
+        this.client.sendHttps("delete", this.client.api + "/channels/" + this.channel.id + "/messages/" + this.id + "/reactions/" + encodeURI(emoji) + "/" + user)
+          .then(() => {
+            resolve();
+          }).catch(err => reject(genErr("delete reaction for user: " + user, err)));
+      });
+    },
+
+    clear: () => {
+      return new Promise((resolve, reject) => {
+        this.client.sendHttps("delete", this.client.api + "/channels/" + this.channel.id + "/messages/" + this.id + "/reactions")
+          .then(res => {
+            resolve(true);
+          }).catch(err => reject(genErr("clear reactions", err)));
+      });
+    },
+
+    addEventListener: (type, o = {}, callback) => {
+      if (type != "add" && type != "remove") 
+        throw new Error(genErr("Expected either add or remove for param 1 (reaction event listener)", null, true));
+      if (typeof o == "function") callback = o;
+      let options = {
+        event: type == "add" ? "MESSAGE_REACTION_ADD" : "MESSAGE_REACTION_REMOVE",
+        messageId: this.id
+      }
+
+      if (o.userId) options.userId = o.userId;
+
+      this.client.addEventListener(options, callback);
+    },
+
+    removeEventListener: (callback) => {
+      this.client.removeEventListener(callback);
+    }
   }
 }
 
@@ -522,7 +608,7 @@ class Member extends User {
         this.nick = newNick;
         resolve();
       }).catch(err => {
-        reject(err);
+        reject(genErr("member; set nick", err));
       });
     });
   }
@@ -554,6 +640,36 @@ class Member extends User {
       }).catch(err => {
         reject(genErr("kick " + this.id, err));
       });
+    });
+  }
+}
+
+class Reaction {
+  constructor(client) {
+    this.client = client;
+  }
+
+  init(data) {
+    return new Promise((resolve, reject) => {
+      this.client.sendHttps("get", this.client.api + "/users/" + data.user_id)
+        .then(res => {
+          let user = new User(this.client, res);
+          this.user = user;
+          this.client.sendHttps("get", this.client.api + "/channels/" + data.channel_id + "/messages/" + data.message_id)
+            .then(mRes => {
+              let message = new Message(this.client, mRes, data.guild_id)
+              message.init().then(() => {
+                this.channel = message.channel;
+                this.guild = message.guild;
+                this.message = message;
+                this.emoji = {
+                  name: data.emoji.name,
+                  id: data.emoji.id
+                }
+                resolve(this);
+              }).catch(err => reject(genErr("init message", err)));
+            }).catch(err => reject(genErr("fetch message", err)));
+        }).catch(err => reject(genErr("init reaction; fetch user", err)));
     });
   }
 }
@@ -658,6 +774,65 @@ class Role {
   }
 }
 
+class Template {
+  constructor(client, data) {
+    this.client = client;
+    this.code = data.code;
+    this.name = data.name;
+    this.description = data.description;
+    this.uses = data.usageCount;
+    this.creator = data.creator;
+    this.createdAt = new Date(data.created_at);
+    this.updatedAt = new Date(data.updated_at);
+    this.source = data.source_guild_id;
+    this.sourceGuild = data.serialized_source_guild;
+    this.dirty = data.is_dirty;
+  }
+
+  sync() {
+    return new Promise((resolve, reject) => {
+      this.client.sendHttps("put", this.client.api + "/guilds/" + this.source + "/templates/" + this.code)
+        .then((res) => {
+          let template = new Template(this.client, res);
+          resolve(template);
+        }).catch(err => reject(genErr("sync template", err)));
+    });
+  }
+
+  delete() {
+    return new Promise((resolve, reject) => {
+      this.client.sendHttps("delete", this.client.api + "/guilds/" + this.source + "/templates/" + this.code)
+        .then(() => {
+          resolve();
+        }).catch(err => reject(genErr("delete template", err)));
+    });
+  }
+
+  setName(newName) {
+    return new Promise((resolve, reject) => {
+      this.client.sendHttps("patch", this.client.api + "/guilds/" + this.source + "/templates/" + this.code, {
+          name: newName
+        })
+        .then((res) => {
+          let template = new Template(this.client, res);
+          resolve(template);
+        }).catch(err => reject(genErr("update template; set name", err)));
+    });
+  }
+
+  setDescription(newName) {
+    return new Promise((resolve, reject) => {
+      this.client.sendHttps("patch", this.client.api + "/guilds/" + this.source + "/templates/" + this.code, {
+          desription: newName
+        })
+        .then((res) => {
+          let template = new Template(this.client, res);
+          resolve(template);
+        }).catch(err => reject(genErr("update template; set description", err)));
+    });
+  }
+}
+
 function getToSend(content, other) {
   let toSend = {};
 
@@ -694,3 +869,4 @@ module.exports.Channel = Channel;
 module.exports.User = User;
 module.exports.Guild = Guild;
 module.exports.Invite = Invite;
+module.exports.Reaction = Reaction;

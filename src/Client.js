@@ -5,7 +5,8 @@ const {
     Channel,
     User,
     Guild,
-    Invite
+    Invite,
+    Reaction
 } = require("./builders");
 const Intents = require("./Intents");
 const genErr = require(__dirname + "/GenerateError.js");
@@ -28,6 +29,8 @@ class Client {
             debug: null
         }
 
+        this.customEvents = [];
+
         this.cache = {
             messages: {},
             guilds: {},
@@ -40,6 +43,16 @@ class Client {
             channel: 420000,
             user: 300000
         }
+
+        this.lastDone = {
+            reactionAdd: 0
+        }
+
+        this.lastDoneTimers = {
+            reactionAdd: 750
+        }
+
+        this.completedRequests = [];
 
         this.lastSequenceCode = null;
         this.heartbeatInterval = null;
@@ -128,6 +141,28 @@ class Client {
 
                 if (this.events.ready) this.events.ready();
                 break;
+            case "MESSAGE_REACTION_ADD":
+                let e = this.#findCustomEvents({
+                    event: "MESSAGE_REACTION_ADD",
+                    messageId: msg.d.message_id,
+                    userId: msg.d.user_id
+                });
+                
+                for (let i in e) {
+                    let reaction = new Reaction(this);
+                    reaction.init(msg.d).then(res => {
+                        e[i].callback(res, () => {
+                            this.debug(e[i].event + " event disposed (" + e[i].id + ")");
+                            this.customEvents.splice(this.customEvents.indexOf(e[i], 1));
+                        });
+
+                        this.debug("Successfully triggered custom event (" + e[i].id + ") for event " + e[i].event);
+                    }).catch(err => {
+                        this.debug(err);
+                        throw new Error(err);
+                    });
+                }
+                break;
             case "MESSAGE_CREATE":
                 let msgCreate = new Message(this, msg.d);
                 msgCreate.init().then(() => {
@@ -214,8 +249,11 @@ class Client {
         if (this.events.debug) this.events.debug("[ " + type.toUpperCase() + " ] => " + message);
     }
 
-    sendHttps(method, url, data) {
+    sendHttps(method, url, data, levelDeep = 0) {
         return new Promise((resolve, reject) => {
+            if (levelDeep == 10)
+                return reject(genErr("Failed to fetch (tried " + levelDeep + " times): rate limit issue", null));
+
             this.debug(method.toUpperCase() + ": " + url, "http");
 
             // Check if cache exists
@@ -292,9 +330,19 @@ class Client {
             }).catch(err => {
                 let msg = err.response.data;
                 this.debug(JSON.stringify(msg));
-                if (msg?.message?.includes("rate limited"))
-                    reject("You are ratelimited, try again in " + msg.retry_after + "s");
-                else reject(JSON.stringify(msg.message));
+                if (msg?.message?.includes("rate limited")) {
+                    if (msg.retry_after < 5) {
+                        this.debug(method + " FAILED (rate limit) attempt: " + levelDeep + " WAITING " + msg.retry_after * 1000 + "ms");
+                        setTimeout(() => {
+                            this.sendHttps(method, url, data, levelDeep + 1).then((res) => {
+                                
+                                resolve(res);
+                            }).catch(err => reject(genErr("Failed to " + method + " " + url + " (attempt " + levelDeep + ")", err)));
+                        }, msg.retry_after * 1000);
+                    } 
+                    else reject(genErr("You are ratelimited, try again in " + msg.retry_after + "s", msg.toString()));
+                }
+                else reject(genErr(method + " " + url, err.toString()));
             });
         });
     }
@@ -363,6 +411,48 @@ class Client {
                     reject(genErr("get self", err));
                 });
         });
+    }
+
+    addEventListener(options, callback) {
+        options.id = Math.random().toString();
+        options.callback = callback;
+        this.customEvents.push(options);
+
+        this.debug("Added new event for: " + options.event);
+    }
+
+    removeEventListener(callback) {
+        for (let i in this.customEvents) {
+            if (this.customEvents[i].callback == callback)
+                this.customEvents.splice(i, 1);
+        }
+    }
+
+    #findCustomEvents(options) {
+        let success = [];
+
+        for (let i in this.customEvents) {
+            if (this.customEvents[i].event == options.event) {
+                if (options.messageId && (options.messageId == this.customEvents[i].messageId)) {
+                    if (options.userId) {
+                        if (options.userId == this.customEvents[i].userId) {
+                            success.push(this.customEvents[i]);
+                            continue;
+                        } else continue;
+                    } else {
+                        success.push(this.customEvents[i]);
+                        continue;
+                    }
+                } else {
+                    if (options.userId && (options.userid == this.customEvents[i].userId)) {
+                        success.push(this.customEvents[i]);
+                        continue;
+                    } else continue;
+                }
+            }
+        }
+
+        return success;
     }
 }
 

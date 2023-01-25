@@ -52,7 +52,8 @@ class Embed {
     }
 
     setThumbnail(url) {
-        this.thumbnail = url;
+        this.thumbnail = {};
+        this.thumbnail.url = url;
         return this;
     }
 
