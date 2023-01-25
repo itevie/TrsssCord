@@ -1,4 +1,5 @@
 const Embed = require(__dirname + "/Embed.js");
+const genErr = require(__dirname + "/GenerateError.js");
 
 class Channel {
   constructor(client, id) {
@@ -115,15 +116,15 @@ class Channel {
   setNsfw(enable) {
     return new Promise((resolve, reject) => {
       if (enable != true && enable != false)
-        throw new Error("Expected boolean");
+        reject(genErr("expected bool", null))
 
       this.client.sendHttps("patch", this.client.api + "/channels/" + this.id, {
         nsfw: enable
       }).then(res => {
         this.init().then(() => {
           resolve();
-        }).catch(err => reject(err));
-      }).catch(err => reject(err));
+        }).catch(err => reject(genErr("init channel", err)));
+      }).catch(err => reject(genErr("fetch channel", err)));
     });
   }
 
@@ -175,12 +176,12 @@ class Channel {
     create: () => {
       return new Promise((resolve, reject) => {
         this.client.sendHttps("post", this.client.api + "/channels/" + this.id + "/invites", {})
-        .then(res => {
-          let invite = new Invite(this.client, res);
-          invite.init(res).then(() => {
-            resolve(invite);
-          }).catch(err => reject(new Error("Failed to init invite: " + err)));
-        }).catch(err => reject(new Error("Failed to create invite: " + err)));
+          .then(res => {
+            let invite = new Invite(this.client, res);
+            invite.init(res).then(() => {
+              resolve(invite);
+            }).catch(err => reject(genErr("init invite", err)));
+          }).catch(err => reject(genErr("create invite", err)));
       });
     }
   }
@@ -310,9 +311,9 @@ class Guild {
             channel.init().then(() => {
               resolve(channel);
             }).catch((err) => {
-              reject(new Error("Failed to init channel: " + err));
+              reject(genErr("init channel", err));
             })
-          }).catch(err => reject(new Error("Failed to create channel: " + err)));
+          }).catch(err => reject(genErr("create channel", err)));
       });
     }
   }
@@ -326,10 +327,10 @@ class Guild {
               let newUser = new Member(this.client, member, user, this);
               resolve(newUser);
             }).catch(err => {
-              reject(new Error("Failed to fetch user " + id + ": " + err));
+              reject(genErr("fetch user " + id, err))
             })
           }).catch(err => {
-            reject(new Error("Failed to fetch member " + id + ": " + err));
+            reject(genErr("fetch member " + id, err));
           });
       });
     }
@@ -340,7 +341,7 @@ class Guild {
       this.client.sendHttps("get", this.client.api + "/guilds/" + this.id + "/invites")
         .then((res) => {
           resolve(res);
-        }).catch(err => reject(new Error("Failed to fetch invites: " + err)));
+        }).catch(err => reject(genErr("fetch invites", err)));
     });
   }
 }
@@ -373,10 +374,10 @@ class User {
               let msg = new Message(this.client, r);
               msg.init().then(() => {
                 resolve(msg);
-              }).catch(err => reject(new Error("Failed to init message: " + err)));
-            }).catch(err => reject(new Error("Failed to fetch message: " + err)));
+              }).catch(err => reject(genErr("init message", err)));
+            }).catch(err => reject(genErr("fetch message", err)));
         } catch (err) {}
-      }).catch(err => reject(new Error("Failed to create user DM: " + err)));
+      }).catch(err => reject(genErr("create user DM", err)));
     });
   }
 }
@@ -531,7 +532,7 @@ class Member extends User {
       this.client.sendHttps("put", this.client.api + "/guilds/" + this.guild.id + "/bans/" + this.id).then(() => {
         resolve();
       }).catch(err => {
-        reject(new Error("Failed to ban " + this.id + ": " + err));
+        reject(genErr("ban " + this.id, err));
       });
     });
   }
@@ -541,7 +542,7 @@ class Member extends User {
       this.client.sendHttps("delete", this.client.api + "/guilds/" + this.guild.id + "/bans/" + this.id).then(() => {
         resolve();
       }).catch(err => {
-        reject(new Error("Failed to remove ban " + this.id + ": " + err));
+        reject(genErr("remove ban " + this.id, err));
       });
     });
   }
@@ -551,7 +552,7 @@ class Member extends User {
       this.client.sendHttps("delete", this.client.api + "/guilds/" + this.guild.id + "/members/" + this.id).then(() => {
         resolve();
       }).catch(err => {
-        reject(new Error("Failed to kick " + this.id + ": " + err));
+        reject(genErr("kick " + this.id, err));
       });
     });
   }
@@ -579,13 +580,13 @@ class Invite {
         channel.init().then(() => {
           this.channel = channel;
           this.client.sendHttps("get", this.client.api + "/users/" + data.inviter.id)
-          .then(uRes => {
-            let user = new User(this.client, uRes);
-            this.inviter = user;
-            resolve(this);
-          }).catch(err => reject(new Error("Failed to fetch user at invite init: " + err)));
-        }).catch(err => reject(new Error("Failed to init channel at invite init: " + err)));
-      }).catch(err => reject(new Error("Failed to init guild at invite init: " + err)));
+            .then(uRes => {
+              let user = new User(this.client, uRes);
+              this.inviter = user;
+              resolve(this);
+            }).catch(err => reject(genError("fetch user", err)));
+        }).catch(err => reject(genErr("init channel", err)));
+      }).catch(err => reject(genErr("init guild", err)));
     });
   }
 
@@ -594,7 +595,7 @@ class Invite {
       this.client.sendHttps("delete", this.client.api + "/invites/" + this.code)
         .then(res => {
           resolve();
-        }).catch(err => reject(new Error("Failed to delete invite: " + err)));
+        }).catch(err => reject(genErr("delete invite " + this.code, err)));
     });
   }
 }
@@ -628,7 +629,7 @@ class Role {
       this.client.sendHttps("delete", this.client.api + "/guilds/" + this.guild.id + "/roles/" + this.id)
         .then(() => {
           resolve();
-        }).catch(err => reject(new Error("Failed to delete role: " + err)));
+        }).catch(err => reject(genErr("delete role " + this.name, err)));
     })
   }
 
@@ -640,7 +641,7 @@ class Role {
         .then((res) => {
           this.init(res);
           resolve(this);
-        }).catch(err => reject(new Error("Failed to update role: " + err)));
+        }).catch(err => reject(genErr("update role; set name: " + this.name, err)));
     });
   }
 
@@ -652,7 +653,7 @@ class Role {
         .then((res) => {
           this.init(res);
           resolve(this);
-        }).catch(err => reject(new Error("Failed to update role: " + err)));
+        }).catch(err => reject(genErr("update role; set hoist: " + this.name, err)));
     });
   }
 }

@@ -8,6 +8,7 @@ const {
     Invite
 } = require("./builders");
 const Intents = require("./Intents");
+const genErr = require(__dirname + "/GenerateError.js");
 
 class Client {
     #token = null
@@ -48,7 +49,7 @@ class Client {
         this.intents = 0
         for (let i in options.intents) {
             if (!Intents.proper[options.intents[i]])
-                throw new Error("Invalid intent: " + options.intents[i]);
+                throw new Error(genErr("invalid intent: " + options.intents[i], null, true));
             this.intents = this.intents | Intents.proper[options.intents[i]];
         }
     }
@@ -308,7 +309,7 @@ class Client {
                             resolve(new Channel(this, res));
                         });
                     }).catch(err => {
-                        reject(new Error("Failed to fetch channel " + id + ": " + err));
+                        reject(genErr("fetch channel: " + id, err));
                     });
             });
         }
@@ -320,7 +321,7 @@ class Client {
                 let guild = new Guild(this, id);
                 guild.init().then(() => {
                     resolve(guild);
-                }).catch(err => reject(new Error("Failed to fetch guild: " + id + ": " + err)));
+                }).catch(err => reject(genErr("fetch guild: " + id, err)));
             });
         },
 
@@ -332,8 +333,8 @@ class Client {
                     let guild = new Guild(this, res.id);
                     guild.init().then(() => {
                         resolve(guild);
-                    }).catch(err => reject(new Error("Failed to init guild: " + err)));
-                }).catch(err => reject(new Error("Failed to create guild: " + err)));
+                    }).catch(err => reject(genErr("init guild: " + name, err)));
+                }).catch(err => reject(genErr("create guild: " + name, err)));
             });
         }
     }
@@ -346,8 +347,8 @@ class Client {
                     let invite = new Invite(this, res);
                     invite.init(res).then(() => {
                         resolve(invite);
-                    }).catch(err => reject(new Error("Failed to init invite: " + err)));
-                }).catch(err => reject(new Error("Failed to fetch invite: " + err)));
+                    }).catch(err => reject(genErr("init invite", err)));
+                }).catch(err => reject(genErr("fetch invite: " + code, err)));
             });
         }
     }
@@ -359,7 +360,7 @@ class Client {
                     let user = new User(this, res);
                     resolve(user)
                 }).catch(err => {
-                    reject(new Error("Failed to get self: " + err));
+                    reject(genErr("get self", err));
                 });
         });
     }
